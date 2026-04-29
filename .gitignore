@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.pyc
+
+db/cinemate.db
+db/chroma_storage/
+
+data/
+
+.DS_Store
