@@ -1,10 +1,14 @@
 .venv/
+.streamlit/
+
 __pycache__/
 *.pyc
+
+data/
 
 db/cinemate.db
 db/chroma_storage/
 
-data/
+engine/cinemate_agent.gguf
 
 .DS_Store

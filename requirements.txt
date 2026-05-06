@@ -1,3 +1,16 @@
-pandas>=2.0
-chromadb>=1.0
-sentence-transformers>=5.0
+# Web UI
+streamlit>=1.35.0
+
+# LLM / Ollama client
+ollama>=0.2.0
+
+# Translation (Helsinki-NLP MarianMT)
+transformers>=4.40.0
+sentencepiece>=0.2.0          # required tokenizer backend for MarianTokenizer
+torch>=2.2.0                  # MarianMTModel inference backend
+
+# Vector search
+chromadb>=0.5.0
+sentence-transformers>=3.0.0  # paraphrase-multilingual-MiniLM-L12-v2
+
+pandas>=2.0.0
