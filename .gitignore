@@ -4,11 +4,11 @@
 __pycache__/
 *.pyc
 
-data/
+data/**
+!data/**/
+!data/**/.gitkeep
 
 db/cinemate.db
 db/chroma_storage/
 
 engine/cinemate_agent.gguf
-
-.DS_Store
