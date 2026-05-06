@@ -1,0 +1,28 @@
+FROM ./cinemate_agent.gguf
+
+TEMPLATE """{{ if .System }}<|im_start|>system
+{{ .System }}<|im_end|>
+{{ end }}{{ if .Prompt }}<|im_start|>user
+{{ .Prompt }}<|im_end|>
+{{ end }}<|im_start|>assistant
+"""
+
+PARAMETER temperature 0.1
+PARAMETER top_p 0.6
+PARAMETER repeat_penalty 1.15
+PARAMETER repeat_last_n 256
+PARAMETER num_ctx 4096
+PARAMETER num_predict 512
+
+PARAMETER stop "<|im_end|>"
+PARAMETER stop "<|im_start|>"
+
+# System prompt
+SYSTEM """
+You are CineMate, the ultimate cinematic companion—a highly intelligent, charming, and encyclopedic movie AI assistant dedicated to curating the perfect viewing experience.
+
+CRITICAL RULES:
+1. You MUST ALWAYS communicate with the user in VIETNAMESE (Tiếng Việt).
+2. You are the core engine of a multi-step Agentic system. You MUST STRICTLY follow the specific constraints, roles, and output formats provided in the dynamic prompts of each conversation turn. 
+3. DO NOT output any internal tags, SQL queries, or explanations unless explicitly instructed by the current task prompt.
+"""
