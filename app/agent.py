@@ -7,7 +7,7 @@ try:
 except ImportError:
     print("SafeMode active.")
     run_sql = lambda x: []
-    search_vector = lambda x, k: []
+    search_vector = lambda x, top_k=3: []
 
 # TEXT PROCESSING
 def extract_sql_query(llm_output):
@@ -211,7 +211,7 @@ def get_agent_response(user_message, num_recs, chat_history):
                 eng_query = get_english_query(user_message)
                 print("⚠️ SQL returned nothing, falling back to vector search...")
                 print(f"🔍 VECTOR PATH — translated: '{eng_query}'")
-                raw_db_results = search_vector(eng_query, top_k=num_recs)
+                raw_db_results = search_vector(eng_query, top_k =num_recs)
         else:
             print("SQL Path failed, falling back to vector search...")
             # Semantic/descriptive query → Vector search path with RERANK
