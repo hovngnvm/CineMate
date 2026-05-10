@@ -13,25 +13,21 @@ DB_PATH = BASE_DIR / "db" / "cinemate.db"
 
 def init_sqlite() -> None:
     """
-    Read the cleaned movie CSV and load it into an SQLite database.
+    Đọc file CSV phim và nạp vào cơ sở dữ liệu SQLite.
 
-    Creates a ``Movies`` table with columns ``id``, ``title``, ``year``,
-    ``genres`` and adds indexes on ``id`` and ``genres`` for fast lookups.
-    Safe to re-run — uses ``IF NOT EXISTS`` for indexes and
-    ``if_exists='replace'`` for the table.
+    Tạo bảng Movies với đầy đủ cột và đánh index trên các cột thường dùng
+    để lọc và tìm kiếm. An toàn khi chạy lại nhờ IF NOT EXISTS và if_exists replace.
     """
-    # Read CSV
     logger.info("Reading CSV from %s …", DATA_PATH)
     df = pd.read_csv(DATA_PATH)
-    
+
     required_cols = {"id", "title", "year", "genres", "overview", "vote_average", "vote_count", "popularity", "keywords", "poster_url", "production_companies", "production_countries", "revenue", "spoken_languages", "tagline", "cast", "crew"}
     missing = required_cols - set(df.columns)
     if missing:
         raise ValueError(f"CSV is missing required columns: {missing}")
-    
+
     df = df[["id", "title", "year", "genres", "overview", "vote_average", "vote_count", "popularity", "keywords", "poster_url", "production_companies", "production_countries", "revenue", "spoken_languages", "tagline", "cast", "crew"]]
 
-    # Write to SQLite
     logger.info("Writing %d rows to %s …", len(df), DB_PATH)
 
     with sqlite3.connect(DB_PATH) as conn:
@@ -42,7 +38,6 @@ def init_sqlite() -> None:
             index=False,
         )
 
-        # Create indexes
         conn.execute(
             'CREATE INDEX IF NOT EXISTS idx_movies_id ON Movies ("id");'
         )

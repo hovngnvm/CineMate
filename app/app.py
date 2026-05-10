@@ -7,12 +7,10 @@ st.set_page_config(
     layout="wide",
 )
 
-# --- CUSTOM SIDEBAR STYLES ---
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
 
-/* ── Sidebar container ── */
 [data-testid="stSidebar"] {
     background: linear-gradient(160deg, #0f0c29 0%, #1a1040 50%, #24243e 100%);
     border-right: 1px solid rgba(255,255,255,0.07);
@@ -22,7 +20,6 @@ st.markdown("""
     padding: 1.5rem 1.25rem;
 }
 
-/* ── Logo block ── */
 .sidebar-logo {
     display: flex;
     align-items: center;
@@ -50,14 +47,12 @@ st.markdown("""
     padding-left: 0.1rem;
 }
 
-/* ── Divider ── */
 .sidebar-divider {
     height: 1px;
     background: linear-gradient(90deg, transparent, rgba(192,132,252,0.4), transparent);
     margin: 1rem 0;
 }
 
-/* ── Section label ── */
 .sidebar-section-label {
     font-size: 0.68rem;
     font-weight: 600;
@@ -67,7 +62,6 @@ st.markdown("""
     margin: 1.2rem 0 0.5rem 0;
 }
 
-/* ── Feature badges ── */
 .feature-badges {
     display: flex;
     flex-direction: column;
@@ -92,7 +86,6 @@ st.markdown("""
 }
 .feature-badge .badge-icon { font-size: 1rem; }
 
-/* ── Slider overrides ── */
 [data-testid="stSlider"] label {
     color: rgba(255,255,255,0.85) !important;
     font-size: 0.82rem !important;
@@ -106,7 +99,6 @@ st.markdown("""
     box-shadow: 0 0 0 4px rgba(192,132,252,0.25) !important;
 }
 
-/* ── Footer ── */
 .sidebar-footer {
     position: absolute;
     bottom: 1.5rem;
@@ -117,12 +109,36 @@ st.markdown("""
     color: rgba(255,255,255,0.2);
     letter-spacing: 0.06em;
 }
+
+.movie-grid-wrapper {
+    max-width: 900px;
+}
+
+.movie-grid-wrapper img {
+    max-height: 220px;
+    object-fit: cover;
+    border-radius: 6px;
+    width: 100%;
+}
+
+.movie-grid-wrapper h3,
+.movie-grid-wrapper [data-testid="stHeading"] h3 {
+    font-size: 0.85rem !important;
+    margin: 0.35rem 0 0.15rem 0 !important;
+    line-height: 1.25 !important;
+}
+.movie-grid-wrapper [data-testid="stText"],
+.movie-grid-wrapper [data-testid="stMarkdown"] p,
+.movie-grid-wrapper small,
+.movie-grid-wrapper [data-testid="stCaptionContainer"] {
+    font-size: 0.72rem !important;
+    line-height: 1.4 !important;
+    margin: 0 !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
-# --- CẤU HÌNH SIDEBAR ---
 with st.sidebar:
-    # Logo & branding
     st.markdown("""
     <div class="sidebar-logo">
         <span class="logo-icon">🎬</span>
@@ -131,7 +147,6 @@ with st.sidebar:
     <div class="sidebar-tagline">Your AI Movie Expert</div>
     """, unsafe_allow_html=True)
 
-    # Feature highlights
     st.markdown('<div class="sidebar-section-label">✦ Features</div>', unsafe_allow_html=True)
     st.markdown("""
     <div class="feature-badges">
@@ -144,45 +159,43 @@ with st.sidebar:
 
     st.markdown('<div class="sidebar-divider"></div>', unsafe_allow_html=True)
 
-    # Recommendations slider
     st.markdown('<div class="sidebar-section-label">⚙ Settings</div>', unsafe_allow_html=True)
     num_recommendations = st.slider("Number of Movies:", 1, 5, 3)
 
-# --- THIẾT KẾ COMPONENT THẺ PHIM (Task 1) ---
+
 def display_movie_cards(movie_list):
-    # 1. Nếu Backend trả về None -> Đang chat phiếm, im lặng và thoát luôn
+    """Hiển thị danh sách phim dưới dạng lưới thẻ trong giao diện Streamlit."""
     if movie_list is None:
         return
 
-    # 2. Nếu Backend trả về mảng rỗng [] -> Có tìm phim nhưng không thấy
     if len(movie_list) == 0:
         return
 
-    # Khống chế hiển thị tối đa 5 cột trên 1 hàng để UI không bị vỡ
+    # Giới hạn tối đa 5 cột để tránh tràn giao diện
     num_cols = min(len(movie_list), 5)
+
+    st.markdown('<div class="movie-grid-wrapper">', unsafe_allow_html=True)
     cols = st.columns(num_cols)
-    
+
     for i, movie in enumerate(movie_list[:num_cols]):
         with cols[i]:
             with st.container(border=True):
-                # Nâng cấp 1: Hiển thị Poster phim cực mượt
                 if movie.get('poster_url'):
                     st.image(movie['poster_url'], width='stretch')
                 else:
-                    # Ảnh placeholder nếu phim không có poster
-                    st.image("https://placehold.co/500x750/png?text=No+Poster", width='stretch')
-                
+                    st.image("https://placehold.co/300x450/1a1040/c084fc?text=No+Poster", width='stretch')
+
                 st.subheader(movie.get('title', 'Unknown'))
-                st.caption(f"📅 Năm: {movie.get('year', 'N/A')}")
-                st.write(f"🎭 {movie.get('genres', 'N/A')}")
-                st.write(f"⭐ {movie.get('vote_average', 'N/A')}" + f" ({movie.get('vote_count', 'N/A')})")
-                
-                # Nâng cấp 2: Dùng expander để giấu phần tóm tắt cho gọn UI
+                st.caption(f"📅 {movie.get('year', 'N/A')}  ⭐ {movie.get('vote_average', 'N/A')}")
+                st.caption(f"🎭 {movie.get('genres', 'N/A')}")
+
                 if movie.get('overview'):
-                    with st.expander("📖 Xem tóm tắt"):
+                    with st.expander("📖 Summary"):
                         st.write(movie['overview'])
 
-# --- GIAO DIỆN CHAT ---
+    st.markdown('</div>', unsafe_allow_html=True)
+
+
 st.title("What do you want to watch?")
 
 if "messages" not in st.session_state:
@@ -195,21 +208,58 @@ for message in st.session_state.messages:
             display_movie_cards(message["movies"])
 
 if prompt := st.chat_input("Ask CineMate"):
-    # Snapshot history BEFORE appending to avoid duplicate user message in LLM context
+    # Chụp lại lịch sử trước khi thêm tin nhắn mới để tránh gửi trùng lặp vào LLM
     history_snapshot = list(st.session_state.messages)
 
     st.session_state.messages.append({"role": "user", "content": prompt})
+
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    with st.chat_message("assistant"):
-        # Task 2: Gọi hàm từ backend_bridge
-        response_text, movies = get_agent_response(prompt, num_recommendations, history_snapshot)
-        st.markdown(response_text)
-        display_movie_cards(movies) # Task 1: Hiển thị thẻ phim
-        
+    # Hiệu ứng chờ xử lý với animation ba chấm nhấp nháy
+    st.markdown("""
+    <style>
+    @keyframes blink {
+        0%, 80%, 100% { opacity: 0; }
+        40%            { opacity: 1; }
+    }
+    .thinking-wrap {
+        display: flex;
+        align-items: center;
+        gap: 0.55rem;
+        padding: 0.6rem 0.9rem;
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 12px;
+        width: fit-content;
+        margin: 0.4rem 0 0.8rem 0;
+        font-size: 0.9rem;
+        color: rgba(255,255,255,0.75);
+        font-family: 'Inter', sans-serif;
+    }
+    .thinking-dots { display: inline-flex; gap: 3px; }
+    .thinking-dots span {
+        width: 5px; height: 5px;
+        border-radius: 50%;
+        background: #c084fc;
+        animation: blink 1.4s infinite ease-in-out;
+    }
+    .thinking-dots span:nth-child(2) { animation-delay: 0.2s; }
+    .thinking-dots span:nth-child(3) { animation-delay: 0.4s; }
+    </style>
+    <div class="thinking-wrap">
+        Thinking
+        <span class="thinking-dots">
+            <span></span><span></span><span></span>
+        </span>
+    </div>
+    """, unsafe_allow_html=True)
+
+    response_text, movies = get_agent_response(prompt, num_recommendations, history_snapshot)
+
     st.session_state.messages.append({
-        "role": "assistant", 
-        "content": response_text, 
+        "role": "assistant",
+        "content": response_text,
         "movies": movies or []
     })
+    st.rerun()

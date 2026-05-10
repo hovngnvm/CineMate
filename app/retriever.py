@@ -1,55 +1,44 @@
 import logging
 import sqlite3
+import pickle
+from rank_bm25 import BM25Okapi
 from pathlib import Path
 import chromadb
-from sentence_transformers import SentenceTransformer
-import transformers
-
-transformers.logging.set_verbosity_error()
 
 logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DB_PATH = BASE_DIR / "db" / "cinemate.db"
 CHROMA_PATH = BASE_DIR / "db" / "chroma_storage"
+BM25_PATH = BASE_DIR / "db" / "bm25_index.pkl"
 
-# Singleton holders
-_embedding_model: SentenceTransformer | None = None
 _chroma_collection: chromadb.Collection | None = None
+_bm25_data: dict | None = None
 
-# Embedding Model
-def _get_embedding_model() -> SentenceTransformer:
-    """Load the embedding model once and cache it for all subsequent calls."""
-    global _embedding_model
-    if _embedding_model is None:
-        logger.info("Loading SentenceTransformer model (one-time)…")
-        _embedding_model = SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
-    return _embedding_model
+
+def _get_bm25_data() -> dict:
+    """Nạp chỉ mục BM25 từ file pickle một lần và cache lại cho các lần gọi sau."""
+    global _bm25_data
+    if _bm25_data is None:
+        logger.info("Loading BM25 index (one-time)…")
+        with open(BM25_PATH, 'rb') as f:
+            _bm25_data = pickle.load(f)
+    return _bm25_data
+
 
 def _get_chroma_collection() -> chromadb.Collection:
-    """Open the ChromaDB collection once and cache the handle."""
+    """Mở collection ChromaDB một lần và giữ handle singleton."""
     global _chroma_collection
     if _chroma_collection is None:
         client = chromadb.PersistentClient(path=str(CHROMA_PATH))
         _chroma_collection = client.get_collection(name="movies")
     return _chroma_collection
 
-# SQL Query
+
 def run_sql(query_string: str, params: tuple = ()) -> list | str:
     """
-    Execute a read query against the SQLite database.
-    Parameters
-    ----------
-    query_string : str
-        SQL query — use ``?`` placeholders for parameters.
-    params : tuple
-        Values to bind to the placeholders (prevents SQL injection).
-    Returns
-    -------
-    list
-        Rows returned by the query.
-    str
-        An error message if the query fails.
+    Thực thi truy vấn đọc trên SQLite. Dùng placeholder ? để tham số hóa
+    và tránh SQL injection. Trả về danh sách dòng hoặc chuỗi lỗi.
     """
     try:
         with sqlite3.connect(DB_PATH) as conn:
@@ -59,39 +48,53 @@ def run_sql(query_string: str, params: tuple = ()) -> list | str:
         logger.error("SQL query failed: %s | query: %s", exc, query_string)
         return f"Lỗi truy vấn: {exc}"
 
-# Vector Search
-def search_vector(text_query: str, top_k: int = 3) -> list[tuple]:
-    """
-    Semantic search over the movie vector store.
-    Parameters
-    ----------
-    text_query : str
-        Natural-language query to embed and search.
-    top_k : int
-        Number of nearest-neighbour results to return.
-    Returns
-    -------
-    list[tuple]
-        Each tuple contains (id, title, year, genres, overview, poster_url).
-    """
-    model = _get_embedding_model()
+
+def search_vector(query_embedding: list[float], top_k: int = 3) -> list[tuple]:
+    """Tìm kiếm ngữ nghĩa trên vector store, trả về top K phim gần nhất theo embedding."""
     collection = _get_chroma_collection()
-    query_embedding = model.encode(text_query).tolist()
     results = collection.query(
         query_embeddings=[query_embedding],
         n_results=top_k,
     )
     return [
         {
-            "id": results["metadatas"][0][i].get("id", ""),
-            "title": results["metadatas"][0][i].get("title", ""),
-            "year": results["metadatas"][0][i].get("year", ""),
-            "genres": results["metadatas"][0][i].get("genres", ""),
-            "overview": results["metadatas"][0][i].get("overview", ""),
-            "vote_average": results["metadatas"][0][i].get("vote_average", "N/A"),
-            "vote_count": results["metadatas"][0][i].get("vote_count", "N/A"),
-            "poster_url": results["metadatas"][0][i].get("poster_url", ""),
-
+            "id":           meta.get("id", ""),
+            "title":        meta.get("title", ""),
+            "year":         meta.get("year", ""),
+            "genres":       meta.get("genres", ""),
+            "overview":     meta.get("overview", ""),
+            "vote_average": meta.get("vote_average", "N/A"),
+            "vote_count":   meta.get("vote_count", "N/A"),
+            "poster_url":   meta.get("poster_url", ""),
         }
-        for i in range(len(results["ids"][0]))
+        for meta in results["metadatas"][0]
     ]
+
+
+def search_index(text_query: str, top_k: int = 10) -> list[dict]:
+    """Tìm kiếm từ khóa trên chỉ mục BM25, trả về top K phim có điểm khớp cao nhất."""
+    data = _get_bm25_data()
+    bm25: BM25Okapi = data['bm25']
+    records = data['records']
+
+    tokens = text_query.lower().split()
+    scores = bm25.get_scores(tokens)
+
+    top_indices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:top_k]
+
+    # Chỉ giữ kết quả có điểm dương, tức khớp ít nhất một từ khóa
+    results = []
+    for idx in top_indices:
+        if scores[idx] > 0:
+            rec = records[idx]
+            results.append({
+                "id": str(rec.get("id", "")),
+                "title": rec.get("title", ""),
+                "year": rec.get("year", ""),
+                "genres": rec.get("genres", ""),
+                "overview": rec.get("overview", ""),
+                "vote_average": rec.get("vote_average", "N/A"),
+                "vote_count": rec.get("vote_count", "N/A"),
+                "poster_url": rec.get("poster_url", ""),
+            })
+    return results

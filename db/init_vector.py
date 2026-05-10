@@ -18,15 +18,7 @@ META_COLUMNS = ["title", "genres", "year", "overview", "popularity", "poster_url
 
 
 def _build_document(row: pd.Series) -> str:
-    """
-    Compose a single document string from a CSV row.
-
-    Format:
-        Title: <title>. Overview: <overview>.
-        Genres: <genres>.
-
-    Empty / NaN fields are silently skipped.
-    """
+    """Ghép các cột văn bản của một dòng CSV thành chuỗi tài liệu duy nhất để tạo embedding."""
     parts: list[str] = []
     for col in TEXT_COLUMNS:
         value = str(row.get(col, "")).strip()
@@ -36,47 +28,37 @@ def _build_document(row: pd.Series) -> str:
 
 
 def _build_metadata(row: pd.Series) -> dict:
-    """Return a flat dict of metadata fields for ChromaDB storage."""
+    """Trích xuất metadata phẳng từ một dòng CSV để lưu kèm vector trong ChromaDB."""
     meta: dict = {}
     for col in META_COLUMNS:
         value = row.get(col, "")
         value = str(value).strip() if pd.notna(value) else ""
         meta[col] = value
-        
+
     meta["id"] = str(row["id"])
     return meta
 
 
 def init_vector() -> None:
     """
-    Build the ChromaDB vector store from ``movie_db.csv``.
+    Xây dựng vector store ChromaDB từ file CSV phim.
 
-    For every row the script:
-    1. Combines *title, overview, genres* into one
-       document string that is embedded with ``paraphrase-multilingual-MiniLM-L12-v2``.
-    2. Stores additional metadata (*title, genres,
-       release_date*) so downstream queries can filter/display
-       results without a separate SQL lookup.
-    3. Upserts in batches of ``BATCH_SIZE`` to keep peak memory bounded.
-
-    Safe to re-run — uses ``upsert`` so duplicate IDs are updated.
+    Mỗi dòng được ghép thành tài liệu, nhúng bằng mô hình đa ngôn ngữ
+    và lưu kèm metadata. Upsert theo batch để kiểm soát bộ nhớ đỉnh.
+    An toàn khi chạy lại nhờ upsert cập nhật ID trùng.
     """
-    # Load model
     logger.info("Loading SentenceTransformer model …")
     model = SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
 
-    # Read data
     logger.info("Reading data from %s …", DATA_PATH)
     df = pd.read_csv(DATA_PATH)
     total = len(df)
     logger.info("Loaded %d rows.", total)
 
-    # Build document strings & IDs up-front (lightweight — just text)
     logger.info("Building document strings …")
     documents: list[str] = df.apply(_build_document, axis=1).tolist()
     ids: list[str] = df["id"].astype(str).tolist()
 
-    # Init ChromaDB
     logger.info("Initializing ChromaDB at %s …", CHROMA_PATH)
     client = chromadb.PersistentClient(path=str(CHROMA_PATH))
     collection = client.get_or_create_collection(name="movies")
@@ -92,19 +74,17 @@ def init_vector() -> None:
         batch_docs = documents[start:end]
         batch_ids = ids[start:end]
 
-        # Encode only this batch — avoids holding all embeddings in RAM
+        # Chỉ nhúng batch hiện tại để tránh giữ toàn bộ embedding trong RAM cùng lúc
         batch_embeddings = model.encode(
             batch_docs,
             show_progress_bar=True,
-            batch_size=256,          # internal GPU/CPU micro-batch
+            batch_size=256,
         ).tolist()
 
-        # Build per-row metadata
         batch_metadata = [
             _build_metadata(df.iloc[i]) for i in range(start, end)
         ]
 
-        # Upsert instead of add → idempotent, safe to re-run
         collection.upsert(
             documents=batch_docs,
             embeddings=batch_embeddings,

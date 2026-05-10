@@ -10,5 +10,6 @@ data/**
 
 db/cinemate.db
 db/chroma_storage/
+db/bm25_index.pkl
 
 engine/cinemate_agent.gguf
