@@ -1,171 +1,225 @@
-# 🎬 CineMate - AI-Powered Movie Advisor (Hybrid RAG System)
+# 🎬 CineMate
 
-## 📌 Project Overview
+An AI movie recommendation agent built on a Hybrid RAG architecture. Users chat naturally in Vietnamese to discover films — the system decides whether to answer with structured SQL, semantic vector search, or a blend of both, all running locally without external API calls.
 
-An intelligent **Movie Recommendation Agent** leveraging a Hybrid Retrieval-Augmented Generation (RAG) architecture. It allows users to chat naturally to find movies, combining deterministic SQL filtering for structured queries with semantic vector search for descriptive, abstract requests.
+![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=flat&logo=python&logoColor=white)
+![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?style=flat&logo=streamlit&logoColor=white)
+![Ollama](https://img.shields.io/badge/Ollama-000000?style=flat&logo=ollama&logoColor=white)
+![ChromaDB](https://img.shields.io/badge/ChromaDB-FF4F00?style=flat&logo=chroma&logoColor=white)
+![SQLite](https://img.shields.io/badge/SQLite-003B57?style=flat&logo=sqlite&logoColor=white)
+![HuggingFace](https://img.shields.io/badge/HuggingFace-FFD21E?style=flat&logo=huggingface&logoColor=black)
 
-**Core Goal:** Provide accurate, conversational movie recommendations by seamlessly routing between Text-to-SQL generation and Vector Similarity Search, all powered by a local LLM.
-
-## 🏗️ Architecture & Tech Stack
+## Architecture
 
 ```text
-┌──────────────────────────────────────────────────────────────────┐
-│                      Streamlit Web Interface                     │
-└──────────────────────────────┬───────────────────────────────────┘
-                               │ User Query (Vietnamese)
-          ┌────────────────────▼────────────────────┐
-          │             Intent Router (LLM)         │
-          │         Classifies: CHAT vs SEARCH      │
-          └────────────────────┬────────────────────┘
-                               │
-          ┌────────────────────▼────────────────────┐
-          │          Translation Model (NMT)        │
-          │      VI → EN (Helsinki-NLP MarianMT)    │
-          └────────────────────┬────────────────────┘
-                               │
-         ┌─────────────────────┴─────────────────────┐
-         ▼                                           ▼
-┌──────────────────┐                       ┌──────────────────┐
-│ Text-to-SQL (LLM)│──(Fails/Empty)───────►│  Vector Search   │
-│   SQLite Query   │                       │    (ChromaDB)    │
-└────────┬─────────┘                       └────────┬─────────┘
-         │                                          │
-         └───────────────────┬──────────────────────┘
-                             ▼
-                 ┌───────────────────────┐
-                 │ LLM Reranking & Gen   │
-                 │ Synthesizes response  │
-                 └───────────┬───────────┘
-                             │
-                             ▼
-                    Movie Cards & Chat
+                          ┌──────────────────────┐
+                          │   Streamlit Web UI    │
+                          │      (app.py)         │
+                          └──────────┬───────────┘
+                                     │ Vietnamese query
+                          ┌──────────▼───────────┐
+                          │    Intent Router      │
+                          │  Keyword → LLM gate   │
+                          │     (agent.py)        │
+                          └─────┬──────────┬─────┘
+                                │          │
+                     ┌──────────▼──┐  ┌────▼──────────┐
+                     │    CHAT     │  │    SEARCH      │
+                     │  Ollama LLM │  │                │
+                     └──────┬──────┘  └────┬───────────┘
+                            │              │
+                            ▼              ▼
+                      Direct reply    ┌────────────────┐
+                      (no movies)     │ Text-to-SQL    │
+                                      │ LLM → SQLite   │
+                                      └───┬────────────┘
+                                          │ results?
+                                    ┌─────┤
+                                  yes     no
+                                    │     │
+                                    │     ▼
+                                    │  ┌────────────────────┐
+                                    │  │ Named-Entity SQL   │
+                                    │  │ Regex → LIKE query │
+                                    │  └───┬────────────────┘
+                                    │      │ results?
+                                    │  ┌───┤
+                                    │ yes  no
+                                    │  │   │
+                                    │  │   ▼
+                                    │  │ ┌──────────────────────────────────┐
+                                    │  │ │        Hybrid RAG Pipeline       │
+                                    │  │ │                                  │
+                                    │  │ │  VI → EN Translation (MarianMT)  │
+                                    │  │ │  Query Expansion (LLM keywords)  │
+                                    │  │ │          ┌─────┴─────┐           │
+                                    │  │ │    Vector Search   BM25 Search   │
+                                    │  │ │     (ChromaDB)    (rank_bm25)    │
+                                    │  │ │          └─────┬─────┘           │
+                                    │  │ │       RRF Fusion (k=60)          │
+                                    │  │ │    Cross-Encoder Reranking       │
+                                    │  │ │      (BAAI/bge-reranker)         │
+                                    │  │ └────────────┬─────────────────────┘
+                                    │  │              │
+                                    ▼  ▼              ▼
+                               ┌──────────────────────────┐
+                               │  Response Generation     │
+                               │  LLM → Vietnamese reply  │
+                               └────────────┬─────────────┘
+                                            ▼
+                                    Movie Cards & Chat
 ```
 
-- **Frontend / UI:** ![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?style=flat&logo=streamlit&logoColor=white)
-- **Local LLM Engine:** ![Ollama](https://img.shields.io/badge/Ollama-000000?style=flat&logo=ollama&logoColor=white)
-- **Vector Database:** ![ChromaDB](https://img.shields.io/badge/ChromaDB-FF4F00?style=flat&logo=chroma&logoColor=white)
-- **Relational DB:** ![SQLite](https://img.shields.io/badge/SQLite-003B57?style=flat&logo=sqlite&logoColor=white)
-- **Embeddings & Translation:** ![HuggingFace](https://img.shields.io/badge/HuggingFace-FFD21E?style=flat&logo=huggingface&logoColor=black)
-
-## 🗂️ Data Source
-
-**Movie Dataset:** Contains detailed metadata including genres, overview, release year, cast, crew, production companies, and ratings. Ingested from `data/movie_db.csv`.
-
-## 📁 Project Structure
+## Project Structure
 
 ```text
-cinemate/
-│
+CINEMATE/
 ├── app/
-│   ├── app.py                 # Streamlit web application & UI components
-│   ├── agent.py               # Core LLM orchestration, routing, and translation
-│   └── retriever.py           # DB connection layer (SQLite & ChromaDB)
+│   ├── app.py               Streamlit UI, movie card grid, chat interface
+│   ├── agent.py              Orchestrator: intent routing, branch delegation
+│   ├── config.py             Constants, keyword lists, regex patterns
+│   ├── prompts.py            LLM prompt templates (router, SQL, chat, response)
+│   ├── rag.py                Hybrid RAG: query expansion, RRF fusion, named-entity fallback
+│   ├── retriever.py          Data access: SQLite queries, ChromaDB search, BM25 lookup
+│   ├── services.py           ML services: translation, embedding, Cross-Encoder reranking
+│   ├── text_processing.py    SQL extraction, response cleaning, result formatting
+│   └── .streamlit/
+│       └── config.toml       Streamlit server configuration
 │
 ├── db/
-│   ├── init_sqlite.py         # Script to populate SQLite from CSV
-│   ├── init_vector.py         # Script to generate embeddings & populate ChromaDB
-│   └── chroma_storage/        # Persistent vector store (generated)
+│   ├── init_sqlite.py        Populate SQLite from CSV
+│   ├── init_vector.py        Generate embeddings and populate ChromaDB
+│   ├── init_index.py         Build BM25 index and serialize to pickle
+│   ├── cinemate.db           SQLite database (generated)
+│   ├── chroma_storage/       ChromaDB persistent store (generated)
+│   └── bm25_index.pkl        BM25 index (generated)
 │
 ├── engine/
-│   └── Modelfile              # Ollama system prompt & model configuration
+│   ├── Modelfile             Ollama model config and system prompt
+│   └── cinemate_agent.gguf   Quantized model weights (Qwen3 8B Q4_K_M)
 │
-├── data/                      # Raw datasets
+├── data/
+│   └── movie_db.csv          Source dataset
+│
 ├── requirements.txt
 └── README.md
 ```
 
-## ⚙️ Pipeline Workflow
+## Pipeline
 
-### 1. Intent Routing
-- User input is sent to the LLM.
-- The router categorizes the intent as either `CHAT` (casual conversation) or `SEARCH` (movie discovery).
+### Intent Routing
 
-### 2. Query Translation
-- Queries are translated from Vietnamese to English using `Helsinki-NLP/opus-mt-vi-en` to match the English dataset.
+Every user message first passes through a two-stage classifier. A fast keyword check catches obvious greetings and small talk without calling the LLM. Ambiguous messages go to the Ollama model, which outputs a single word — `SEARCH` or `CHAT`. The chat branch returns a conversational reply with no database access; the search branch activates the retrieval cascade below.
 
-### 3. Text-to-SQL (Structured Path)
-- The LLM generates an SQL query based on strict rules (e.g., matching genres, actors, sorting by ratings).
-- Executes against **SQLite** to retrieve precise matches.
+### Text-to-SQL
 
-### 4. Vector Search (Semantic Fallback)
-- If the SQL query fails or returns no results, the system falls back to semantic search using **ChromaDB**.
-- The query is embedded using `paraphrase-multilingual-MiniLM-L12-v2` to find conceptually similar movies based on their overviews and metadata.
-- Candidate movies are passed to the LLM for **Reranking** to select the best matches.
+The LLM receives the user query along with the full `Movies` table schema, a mapping of Vietnamese intent phrases to SQL patterns, and few-shot examples. It generates a single `SELECT` query. The output is sanitized — columns like `cast` and `crew` are backtick-wrapped, `SELECT *` is enforced, and `LIMIT` is always applied. If the query returns rows, those are used directly.
 
-### 5. Final Generation
-- The LLM synthesizes a friendly, natural language response presenting the final movie selections to the user.
+### Named-Entity Fallback
 
-## 🚀 Key Engineering Highlights
+When SQL generation fails or returns nothing, a regex scanner extracts proper-noun sequences (including Vietnamese Unicode names) from the original query. Each name is searched against the `cast`, `keywords`, and `title` columns using parameterized `LIKE` queries. Results are deduplicated by movie ID.
 
-| Feature               | Details                                                                                |
-| --------------------- | -------------------------------------------------------------------------------------- |
-| **Hybrid RAG**        | Combines deterministic SQL lookups with fuzzy semantic vector search.                  |
-| **Local Execution**   | Runs entirely locally using Ollama and HuggingFace models, ensuring privacy and zero API costs. |
-| **Dynamic Routing**   | LLM intelligently decides when to just chat vs. when to query the databases.           |
-| **Multi-lingual**     | Built-in translation allows Vietnamese users to query English metadata seamlessly.     |
-| **Reranking Phase**   | Oversamples vector results and uses the LLM to pick the absolute best candidates.      |
+### Hybrid RAG
 
-## 🛠️ How to Run
+If neither SQL path produces results, the full retrieval pipeline activates:
+
+1. **Translation** — The Vietnamese query is translated to English via Helsinki-NLP's MarianMT model (running on CPU to stay within 6 GB VRAM).
+2. **Query Expansion** — The LLM generates 6–10 domain-specific English keywords (plot themes, genre terms) to enrich the search.
+3. **Parallel Retrieval** — The expanded query is embedded with `paraphrase-multilingual-MiniLM-L12-v2` for ChromaDB vector search, and simultaneously tokenized (with stop-word removal) for BM25 keyword matching. Both run concurrently via `ThreadPoolExecutor`.
+4. **RRF Fusion** — Reciprocal Rank Fusion (k=60) merges the two ranked lists into a single score.
+5. **Cross-Encoder Reranking** — The top candidates are re-scored by `BAAI/bge-reranker-v2-m3` against the original English translation. The final top-K are returned.
+
+### Response Generation
+
+The LLM receives the matched movie titles and composes a short, engaging Vietnamese introduction (≤ 50 words). The Streamlit frontend displays this alongside poster cards with year, rating, genres, and an expandable plot summary.
+
+## Models
+
+| Role                               | Model                                 | Device |
+| ---------------------------------- | ------------------------------------- | ------ |
+| LLM (routing, SQL, chat, response) | Qwen3 8B (Q4_K_M via Ollama)          | GPU    |
+| Translation (VI → EN)              | Helsinki-NLP/opus-mt-vi-en            | CPU    |
+| Embedding                          | paraphrase-multilingual-MiniLM-L12-v2 | GPU    |
+| Reranking                          | BAAI/bge-reranker-v2-m3               | CPU    |
+
+## Database Schema
+
+### Movies (SQLite)
+
+| Column                 | Type | Notes                                                       |
+| ---------------------- | ---- | ----------------------------------------------------------- |
+| `id`                   | INT  | Primary key                                                 |
+| `title`                | TEXT | Movie title                                                 |
+| `year`                 | INT  | Release year                                                |
+| `genres`               | TEXT | English genre names, comma-separated                        |
+| `overview`             | TEXT | Plot summary                                                |
+| `vote_average`         | REAL | Rating score                                                |
+| `vote_count`           | INT  | Number of votes                                             |
+| `popularity`           | REAL | Popularity score                                            |
+| `keywords`             | TEXT | Plot themes and character names                             |
+| `poster_url`           | TEXT | Poster image URL                                            |
+| `production_companies` | TEXT | Studio names                                                |
+| `production_countries` | TEXT | Country names in English                                    |
+| `revenue`              | INT  | Box office revenue                                          |
+| `spoken_languages`     | TEXT | Language names in English                                   |
+| `tagline`              | TEXT | Marketing tagline                                           |
+| `cast`                 | TEXT | Actor names (reserved word, backtick-wrapped in queries)    |
+| `crew`                 | TEXT | Director and writer names (reserved word, backtick-wrapped) |
+
+### ChromaDB Collection: `movies`
+
+Each document is a concatenation of all text columns. Embeddings are generated with the multilingual MiniLM model. Metadata mirrors the SQLite columns used for display.
+
+### BM25 Index
+
+Serialized as `bm25_index.pkl` — contains the `BM25Okapi` model and the full list of record dicts. Tokenized from the same text columns as ChromaDB documents, with punctuation stripped and lowercased.
+
+## Setup
 
 ### Prerequisites
-- Python 3.10+
-- [Ollama](https://ollama.ai/) installed and running locally.
 
-### 1. Clone the Repository
+- Python 3.10+
+- [Ollama](https://ollama.ai/) installed and running
+- A GPU with ≥ 6 GB VRAM (CPU-only is possible but slower)
+- `movie_db.csv` placed in the `data/` directory
+
+### Installation
+
 ```bash
 git clone https://github.com/your-username/cinemate.git
 cd cinemate
-```
 
-### 2. Setup Python Environment
-```bash
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 3. Build the Local LLM Model
-Ensure Ollama is running, then create the custom agent:
+### Build the LLM
+
 ```bash
 cd engine
 ollama create cinemate_agent -f Modelfile
 cd ..
 ```
 
-### 4. Initialize Databases
-Make sure `movie_db.csv` is present in the `data/` folder, then run the initialization scripts:
-```bash
-# Populate SQLite
-python db/init_sqlite.py
+### Initialize Databases
 
-# Populate ChromaDB (Generates embeddings, may take a few minutes)
+```bash
+python db/init_sqlite.py
 python db/init_vector.py
+python db/init_index.py
 ```
 
-### 5. Start the Application
+The vector and BM25 initialization will download embedding models on first run and may take several minutes depending on dataset size.
+
+### Run
+
 ```bash
 streamlit run app/app.py
 ```
 
-Open your browser at `http://localhost:8501` to start chatting with CineMate!
+Open `http://localhost:8501` to start chatting with CineMate.
 
-## 📊 Database Schema
+## License
 
-### `Movies` (SQLite)
-Stores structured metadata for Text-to-SQL queries.
-
-| Column | Type | Description |
-|---|---|---|
-| `id` | INT | Unique Movie ID |
-| `title` | TEXT | Movie Title |
-| `year` | INT | Release Year |
-| `genres` | TEXT | Comma-separated genres |
-| `overview` | TEXT | Plot summary |
-| `vote_average` | REAL | Rating (e.g., 8.5) |
-| `vote_count` | INT | Number of votes |
-| `popularity` | REAL | Popularity score |
-| `poster_url` | TEXT | Image URL for the UI |
-| `cast` / `crew` | TEXT | Actors and Directors |
-
-## 📄 License
 This project is licensed under the MIT License.
