@@ -138,10 +138,10 @@ def run_hybrid_rag(user_message: str, num_recs: int) -> list:
         [d.get('title', '?') for d in vector_list] +
         [d.get('title', '?') for d in bm25_list]
     )
-    print(pool_titles)
+    print(f"- POOL: {pool_titles}")
 
     combined_candidates = rrf_fusion(vector_list, bm25_list)
-    print(f"🧬 Gộp RRF thành công: {len(combined_candidates)} ứng viên duy nhất.")
+    print(f"- RRFUSION: {len(combined_candidates)} unique candidates.")
     print(f"- TOP 10 RRF: {[m['title'] for m in combined_candidates[:10]]}")
 
     if len(combined_candidates) > num_recs:

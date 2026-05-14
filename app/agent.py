@@ -110,7 +110,7 @@ def get_agent_response(
             raw_db_results = run_sql(sql_query)
             if raw_db_results and not isinstance(raw_db_results, str):
                 used_sql = True
-                print(f"- SQL returned {len(raw_db_results)} results ✓")
+                print(f"- SQL returned {len(raw_db_results)} results.")
 
         # Fallback named entity: tìm theo tên riêng trong câu hỏi
         if not used_sql:
@@ -118,7 +118,7 @@ def get_agent_response(
             if ne_results:
                 raw_db_results = ne_results
                 used_sql = True
-                print(f"- NAMED-ENTITY FALLBACK: {len(ne_results)} results ✓")
+                print(f"- NAMED-ENTITY FALLBACK: {len(ne_results)} results.")
 
         # Fallback cuối: hybrid RAG kết hợp ngữ nghĩa và BM25
         if not used_sql:

@@ -46,7 +46,7 @@ def run_sql(query_string: str, params: tuple = ()) -> list | str:
             return cursor.fetchall()
     except sqlite3.Error as exc:
         logger.error("SQL query failed: %s | query: %s", exc, query_string)
-        return f"Lỗi truy vấn: {exc}"
+        return f"Error: {exc}"
 
 
 def search_vector(query_embedding: list[float], top_k: int = 3) -> list[tuple]:
