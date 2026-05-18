@@ -9,6 +9,7 @@ transformers
 sentencepiece    # required tokenizer backend for MarianTokenizer
 torch            # MarianMTModel inference backend
 torchvision
+sacremoses
 
 rank_bm25
 
