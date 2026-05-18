@@ -8,6 +8,7 @@ ollama
 transformers
 sentencepiece    # required tokenizer backend for MarianTokenizer
 torch            # MarianMTModel inference backend
+torchvision
 
 rank_bm25
 
